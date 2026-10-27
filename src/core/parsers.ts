@@ -241,7 +241,7 @@ export function exportWords(words: import("../types").Word[], format: ExportForm
     if (fields.note) cols.push("note");
     if (fields.tags) cols.push("tags");
     if (fields.language) cols.push("language");
-    const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const esc = (v: string) => (/[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
     const lines = [cols.join(",")];
     for (const w of words) {
       const row = cols.map((c) => {

@@ -36,7 +36,12 @@ export default function ImportScreen({ settings }: { settings: Settings }) {
           loadResult(r);
         } else {
           // foreign PDF layout: dump raw text into the paste box for generic/AI parse
-          setPaste(lines.map((l) => l.text).join("\n"));
+          setPaste(
+            lines
+              .filter((l) => l.size <= 20 && l.size > 8.5)
+              .map((l) => l.text)
+              .join("\n")
+          );
           setPhase("pick");
         }
       } catch {

@@ -50,4 +50,17 @@ describe("parsePdfLines — this app's own PDF export layout", () => {
     expect(r.words).toEqual([]);
     expect(r.errors).toHaveLength(1);
   });
+
+  it("routes wrapped-example continuation lines into the last example, not the note", () => {
+    const r = parsePdfLines([
+      L("word", 12),
+      L("translation", 11),
+      L("• first example line one", 10),
+      L("continuation of the example", 10),
+      L("#tag", 9),
+    ]);
+    expect(r.errors).toEqual([]);
+    expect(r.words[0]?.examples).toEqual(["first example line one continuation of the example"]);
+    expect(r.words[0]?.translation).toBe("translation");
+  });
 });

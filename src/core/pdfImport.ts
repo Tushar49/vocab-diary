@@ -104,6 +104,10 @@ export function parsePdfLines(lines: PdfLine[]): ParseResult {
       cur.tags = [...(cur.tags ?? []), ...text.split(/\s+/).map((tk) => tk.replace(/^#+/, "")).filter(Boolean)];
     } else if (text.startsWith("•")) {
       cur.examples = [...(cur.examples ?? []), text.replace(/^•\s*/, "")];
+    } else if (cur.examples?.length && !cur.tags?.length && l.size < 10.9) {
+      // wrapped example continuation: our export prints notes before examples,
+      // so a bare 10pt line after examples started continues the last example
+      cur.examples[cur.examples.length - 1] = `${cur.examples[cur.examples.length - 1]} ${text}`;
     } else if (l.size >= 10.9) {
       // translation line (may wrap): 11pt in our export
       cur.translation = cur.translation ? `${cur.translation} ${text}` : text;
