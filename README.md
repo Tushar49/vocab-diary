@@ -47,7 +47,7 @@ scripts/     gen_icons.py — original geometric icon, pure stdlib
 .github/     CI + GitHub Pages deploy workflows
 ```
 
-## Deliberate limits (see plans/07-PRD.md)
+## Deliberate limits
 
 - Photo OCR (F-07): pending optional dependency (Tesseract.js + local traineddata) — not downloaded by default.
 - Web Push word-of-the-day (F-26 v2): needs the Vercel/serverless function; UI + settings shipped.
