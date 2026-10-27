@@ -205,7 +205,7 @@ export const en = {
   "translate.parseError": "Could not read the model's reply.",
 
   // ----- appended: import -----
-  "import.fileHint": "CSV · TXT · JSON · Markdown",
+  "import.fileHint": "CSV · TXT · JSON · Markdown · PDF",
   "import.paste": "Or paste lines (word - translation)",
   "import.parse": "Parse text",
   "import.empty": "Nothing importable found",
@@ -229,6 +229,7 @@ export const en = {
   "import.aiParse.failed": "AI parse failed — check key/model in Settings.",
   "import.aiParse.disclosure": "The pasted text is sent to your configured AI provider.",
   "settings.exportPdf": "Export PDF",
+  "import.pdfFail": "Couldn't read that PDF. If it's a scanned document/scan-like image, extract text another way and paste it (Paste → AI parse).",
   "library.wordOfDay": "Word of the day",
   "library.count.one": "1 word",
 } as const;

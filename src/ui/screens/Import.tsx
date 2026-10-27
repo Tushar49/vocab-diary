@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import type { Settings } from "../../types";
 import { importWords, type DuplicatePolicy, type ImportSummary } from "../../db/repo";
 import { parseImport, type ParseResult } from "../../core/parsers";
+import { extractPdfLines, parsePdfLines } from "../../core/pdfImport";
 import { aiParseWords, aiReady } from "../../ai/client";
 import { t } from "../../i18n";
 import { Button, Card, Chip, IconButton, Textarea } from "../components";
@@ -26,6 +27,26 @@ export default function ImportScreen({ settings }: { settings: Settings }) {
   };
 
   const onFile = async (file: File) => {
+    if (file.name.toLowerCase().endsWith(".pdf")) {
+      setBusy(true);
+      try {
+        const lines = await extractPdfLines(file);
+        const r = parsePdfLines(lines);
+        if (r.words.length) {
+          loadResult(r);
+        } else {
+          // foreign PDF layout: dump raw text into the paste box for generic/AI parse
+          setPaste(lines.map((l) => l.text).join("\n"));
+          setPhase("pick");
+        }
+      } catch {
+        loadResult({ words: [], errors: [{ line: 0, message: t("import.pdfFail") }] });
+        setPhase("preview");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const content = await file.text();
     loadResult(parseImport(file.name, content));
   };
@@ -169,7 +190,7 @@ export default function ImportScreen({ settings }: { settings: Settings }) {
         <input
           ref={fileInput}
           type="file"
-          accept=".csv,.txt,.json,.md,.markdown,text/csv,text/plain,application/json"
+          accept=".csv,.txt,.json,.md,.markdown,.pdf,text/csv,text/plain,application/json,application/pdf"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
