@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Settings, Word } from "../../types";
 import { allLanguages, allTags, countWords, deleteWord, listWords, updateWord, type SortKey } from "../../db/repo";
+import { todayKey } from "../../core/date";
 import { t } from "../../i18n";
 import { Button, Card, Chip, EmptyState, IconButton, Input, Sheet } from "../components";
 import { navigate } from "../../App";
@@ -30,6 +31,7 @@ export default function Library({ settings, addPrefill }: { settings: Settings; 
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulk, setBulk] = useState<BulkAction | null>(null);
   const [bulkInput, setBulkInput] = useState("");
+  const [wotd, setWotd] = useState<Word | null>(null);
 
   const reload = useMemo(
     () => async () => {
@@ -50,6 +52,18 @@ export default function Library({ settings, addPrefill }: { settings: Settings; 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // F-26: deterministic "word of the day" from the whole library
+  useEffect(() => {
+    if (!total) {
+      setWotd(null);
+      return;
+    }
+    const key = todayKey(settings.dayStartHour);
+    let seed = 0;
+    for (const c of key) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
+    void listWords({ sort: "alpha", offset: seed % total, limit: 1 }).then(([w]) => setWotd(w ?? null));
+  }, [total, settings.dayStartHour]);
 
   // prefill from deep link (#/?add=...)
   useEffect(() => {
@@ -121,6 +135,28 @@ export default function Library({ settings, addPrefill }: { settings: Settings; 
         <span aria-hidden>›</span>
       </Button>
 
+      {wotd && !selecting && (
+        <Card className="mb-3 cursor-pointer" >
+          <div role="button" tabIndex={0} onClick={() => navigate(`word/${wotd.id}`)}>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-accent">{t("library.wordOfDay")}</div>
+            <div className="mt-1 flex items-baseline justify-between gap-2">
+              <span className="text-lg font-extrabold">{wotd.word}</span>
+              <button
+                aria-label="speak"
+                className="text-ink-soft dark:text-[#b7a895]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  speak(wotd.word, { lang: wotd.language, rate: settings.voiceRate, voiceByLang: settings.voiceByLang });
+                }}
+              >
+                🔊
+              </button>
+            </div>
+            <div className="text-sm text-ink-soft dark:text-[#b7a895]">{wotd.translation}</div>
+          </div>
+        </Card>
+      )}
+
       <Input
         placeholder={t("library.search")}
         value={query}
@@ -147,7 +183,7 @@ export default function Library({ settings, addPrefill }: { settings: Settings; 
       )}
 
       <div className="mt-2 flex items-center justify-between text-xs text-ink-soft dark:text-[#b7a895]">
-        <span>{t("library.count", { n: total })}</span>
+        <span>{total === 1 ? t("library.count.one") : t("library.count", { n: total })}</span>
         <div className="flex gap-1">
           {words.length > 0 && (
             <button

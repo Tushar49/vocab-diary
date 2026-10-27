@@ -142,6 +142,20 @@ export default function SettingsScreen({
     flash(setExportMsg, t("settings.exportDone", { n: words.length }));
   };
 
+  const exportPdf = async () => {
+    const words = await listWords({ limit: 100000 });
+    const stamp = new Date().toISOString().slice(0, 10);
+    const { exportPdf } = await import("../../core/pdf");
+    const blob = await exportPdf(words);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `vocabulary-diary-${stamp}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+    flash(setExportMsg, t("settings.exportDone", { n: words.length }));
+  };
+
   const deleteEverything = async () => {
     if (deleteText !== "DELETE") return;
     await deleteAllData();
@@ -343,6 +357,7 @@ export default function SettingsScreen({
       <Card className="space-y-3">
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => void exportJson()}>⬇️ {t("settings.export")}</Button>
+          <Button onClick={() => void exportPdf()}>📄 {t("settings.exportPdf")}</Button>
           <Button variant="outline" onClick={() => navigate("import")}>
             ⬆️ {t("settings.import")}
           </Button>

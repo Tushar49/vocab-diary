@@ -228,6 +228,9 @@ export const en = {
   "import.aiParse.needAi": "Configure an AI key in Settings → AI first.",
   "import.aiParse.failed": "AI parse failed — check key/model in Settings.",
   "import.aiParse.disclosure": "The pasted text is sent to your configured AI provider.",
+  "settings.exportPdf": "Export PDF",
+  "library.wordOfDay": "Word of the day",
+  "library.count.one": "1 word",
 } as const;
 
 export type StringKey = keyof typeof en;

@@ -1,4 +1,5 @@
 nodeLinker: hoisted
 packageImportMethod: copy
 allowBuilds:
+  core-js: true
   esbuild: true
