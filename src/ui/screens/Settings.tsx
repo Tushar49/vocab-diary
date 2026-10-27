@@ -135,24 +135,23 @@ export default function SettingsScreen({
     }
   };
 
-  const exportJson = async () => {
+  type ExportChoice = "json" | "csv" | "md" | "txt" | "pdf";
+  const exportAs = async (choice: ExportChoice) => {
     const words = await listWords({ limit: 100000 });
     const stamp = new Date().toISOString().slice(0, 10);
-    download(`vocabulary-diary-${stamp}.json`, exportWords(words, "json"));
-    flash(setExportMsg, t("settings.exportDone", { n: words.length }));
-  };
-
-  const exportPdf = async () => {
-    const words = await listWords({ limit: 100000 });
-    const stamp = new Date().toISOString().slice(0, 10);
-    const { exportPdf } = await import("../../core/pdf");
-    const blob = await exportPdf(words);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `vocabulary-diary-${stamp}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (choice === "pdf") {
+      const { exportPdf } = await import("../../core/pdf");
+      const blob = await exportPdf(words);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `vocabulary-diary-${stamp}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const fmt = choice === "md" ? "markdown" : choice;
+      download(`vocabulary-diary-${stamp}.${choice}`, exportWords(words, fmt));
+    }
     flash(setExportMsg, t("settings.exportDone", { n: words.length }));
   };
 
@@ -356,8 +355,11 @@ export default function SettingsScreen({
       <div className={`mb-2 mt-5 ${sectionTitle}`}>{t("settings.data")}</div>
       <Card className="space-y-3">
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => void exportJson()}>⬇️ {t("settings.export")}</Button>
-          <Button onClick={() => void exportPdf()}>📄 {t("settings.exportPdf")}</Button>
+          <Button onClick={() => void exportAs("json")}>{t("settings.export.json")}</Button>
+          <Button variant="outline" onClick={() => void exportAs("csv")}>{t("settings.export.csv")}</Button>
+          <Button variant="outline" onClick={() => void exportAs("md")}>{t("settings.export.md")}</Button>
+          <Button variant="outline" onClick={() => void exportAs("txt")}>{t("settings.export.txt")}</Button>
+          <Button onClick={() => void exportAs("pdf")}>{t("settings.export.pdf")}</Button>
           <Button variant="outline" onClick={() => navigate("import")}>
             ⬆️ {t("settings.import")}
           </Button>

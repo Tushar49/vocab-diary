@@ -142,7 +142,8 @@ function parseCsvRows(content: string): string[][] {
   return rows;
 }
 
-/** TXT: "word - translation" / "word — translation" / "word<TAB>translation" per line. */
+/** TXT: "word - translation" / "word — translation" / "word<TAB>translation" per line.
+ *  Understands this app's own TXT export trailing metadata: [transcription] #tags // note. */
 export function parseTxt(content: string): ParseResult {
   const errors: { line: number; message: string }[] = [];
   const words: ParsedWord[] = [];
@@ -154,7 +155,29 @@ export function parseTxt(content: string): ParseResult {
       errors.push({ line: i + 1, message: "Expected 'word - translation'" });
       return;
     }
-    words.push({ word: m[1].trim(), translation: m[2].trim() });
+    let translation = m[2].trim();
+    let note: string | undefined;
+    let transcription: string | undefined;
+    let tags: string[] | undefined;
+    const noteSplit = translation.match(/^(.*?)\s*\/\/\s*(.*)$/);
+    if (noteSplit) {
+      translation = noteSplit[1]!;
+      note = noteSplit[2]! || undefined;
+    }
+    const tagTail = translation.match(/\s+(#\S+(?:\s+#\S+)*)$/);
+    if (tagTail) {
+      const list = tagTail[1]!.split(/\s+/).map((tk) => tk.replace(/^#+/, "")).filter(Boolean);
+      if (list.length) {
+        tags = list;
+        translation = translation.slice(0, tagTail.index!).trim();
+      }
+    }
+    const trSplit = translation.match(/^(.*?)\s*\[([^\]]+)\]$/);
+    if (trSplit) {
+      translation = trSplit[1]!.trim();
+      transcription = trSplit[2]!;
+    }
+    words.push({ word: m[1].trim(), translation, transcription, note, tags });
   });
   return { words, errors };
 }
@@ -182,7 +205,7 @@ export function parseMarkdown(content: string): ParseResult {
 
 // ---------- export ----------
 
-export type ExportFormat = "json" | "csv" | "markdown";
+export type ExportFormat = "json" | "csv" | "markdown" | "txt";
 
 export interface ExportFields {
   word: boolean;
@@ -228,6 +251,17 @@ export function exportWords(words: import("../types").Word[], format: ExportForm
       lines.push(row.join(","));
     }
     return lines.join("\n");
+  }
+  if (format === "txt") {
+    return words
+      .map((w) => {
+        let line = `${w.word} - ${w.translation}`;
+        if (fields.transcription && w.transcription) line += ` [${w.transcription}]`;
+        if (fields.tags && w.tags.length) line += ` #${w.tags.map((t) => t.replace(/\s+/g, "")).join(" #")}`;
+        if (fields.note && w.note) line += ` // ${w.note}`;
+        return line;
+      })
+      .join("\n");
   }
   // markdown
   return words
