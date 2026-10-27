@@ -69,7 +69,7 @@ describe("computeMastery", () => {
   });
 
   it("forceReview demotes mastered on lapse", () => {
-    expect(computeMastery({ ef: 2.5, interval: 30, reps: 5, lapses: 1, dueAt: 0 }, true, true)).toBe("review");
+    expect(computeMastery({ ef: 2.5, interval: 30, reps: 5, lapses: 1, dueAt: 0 }, true, true)).toBe("lapsed");
   });
 });
 

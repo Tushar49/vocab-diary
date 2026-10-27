@@ -1,5 +1,7 @@
 import { strings, type StringKey } from "./strings";
 
+export type { StringKey } from "./strings";
+
 let lang = "en";
 
 export function setLang(code: string): void {

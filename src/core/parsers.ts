@@ -43,6 +43,12 @@ export function parseJson(content: string): ParseResult {
         examples: Array.isArray(row.examples) ? row.examples.map(String) : undefined,
         tags: Array.isArray(row.tags) ? row.tags.map(String) : typeof row.tags === "string" ? splitList(row.tags) : undefined,
         language: row.language != null ? String(row.language) : undefined,
+        // backup-restore fidelity
+        id: typeof row.id === "number" ? row.id : undefined,
+        sm2: isSm2(row.sm2) ? row.sm2 : undefined,
+        mastery: typeof row.mastery === "string" ? (row.mastery as ParsedWord["mastery"]) : undefined,
+        createdAt: typeof row.createdAt === "number" ? row.createdAt : undefined,
+        updatedAt: typeof row.updatedAt === "number" ? row.updatedAt : undefined,
       });
     });
     return { words, errors };
@@ -56,6 +62,18 @@ function splitList(s: string): string[] {
     .split(/[,;|]/)
     .map((t) => t.trim())
     .filter(Boolean);
+}
+
+function isSm2(v: unknown): v is { ef: number; interval: number; reps: number; lapses: number; dueAt: number } {
+  if (typeof v !== "object" || v === null) return false;
+  const s = v as Record<string, unknown>;
+  return (
+    typeof s.ef === "number" &&
+    typeof s.interval === "number" &&
+    typeof s.reps === "number" &&
+    typeof s.lapses === "number" &&
+    typeof s.dueAt === "number"
+  );
 }
 
 /** Minimal CSV with quotes; first row may be a header. */

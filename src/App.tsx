@@ -53,7 +53,7 @@ export default function App() {
   if (!settings) return null;
 
   if (!settings.onboarded && route.page !== "onboarding") {
-    return <Onboarding settings={settings} />;
+    return <Onboarding settings={settings} onSettings={setSettings} />;
   }
 
   switch (route.page) {
@@ -72,7 +72,7 @@ export default function App() {
     case "import":
       return <ImportScreen settings={settings} />;
     case "onboarding":
-      return <Onboarding settings={settings} />;
+      return <Onboarding settings={settings} onSettings={setSettings} />;
     default:
       return <Library settings={settings} addPrefill={route.query} />;
   }

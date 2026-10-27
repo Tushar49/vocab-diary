@@ -3,9 +3,15 @@
 export const GRADE = { again: 1, hard: 3, good: 4, easy: 5 } as const;
 export type GradeKey = keyof typeof GRADE;
 
-/** Auto-graded modes: map correctness + latency to a grade. */
-export function autoGrade(correct: boolean, ms: number, slowMs = 8000): number {
+/** Auto-graded modes: correctness, latency, and a typo channel. */
+export function autoGrade(
+  correct: boolean,
+  ms: number,
+  opts: { slowMs?: number; typo?: boolean } = {}
+): number {
   if (!correct) return 1;
+  if (opts.typo) return 3; // Levenshtein<=1 pass counts as "hard"
+  const slowMs = opts.slowMs ?? 8000;
   if (ms < 3000) return 5;
   if (ms < slowMs) return 4;
   return 3;
@@ -40,9 +46,23 @@ export function levenshtein(a: string, b: string): number {
   return prev[n];
 }
 
-/** Pick n distractors for multiple-choice, preferring same tags/language. */
-export function pickDistractors<T extends { id?: number }>(pool: T[], answer: T, n: number, rnd = Math.random): T[] {
-  const candidates = pool.filter((w) => w.id !== answer.id);
-  const shuffled = [...candidates].sort(() => rnd() - 0.5);
-  return shuffled.slice(0, n);
+/** Pick n distractors: prefer same language, then shared tags, then the rest. */
+export function pickDistractors<T extends { id?: number; language?: string; tags?: string[] }>(
+  pool: T[],
+  answer: T,
+  n: number,
+  rnd = Math.random
+): T[] {
+  const others = pool.filter((w) => w.id !== answer.id);
+  const answerTags = new Set(answer.tags ?? []);
+  const sameLang: T[] = [];
+  const sameTags: T[] = [];
+  const rest: T[] = [];
+  for (const w of others) {
+    if (w.language && w.language === answer.language) sameLang.push(w);
+    else if ((w.tags ?? []).some((t) => answerTags.has(t))) sameTags.push(w);
+    else rest.push(w);
+  }
+  const shuffle = <X,>(arr: X[]) => [...arr].sort(() => rnd() - 0.5);
+  return [...shuffle(sameLang), ...shuffle(sameTags), ...shuffle(rest)].slice(0, n);
 }

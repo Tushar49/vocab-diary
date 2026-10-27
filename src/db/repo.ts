@@ -2,6 +2,7 @@ import type { DailyStat, Mastery, ParsedWord, ReviewMode, Settings, Sm2State, Wo
 import { DEFAULT_SETTINGS, newSm2 } from "../types";
 import { db } from "./db";
 import { gradeSm2, computeMastery } from "../core/sm2";
+import { parseJson } from "../core/parsers";
 import { tokensForWord, tokenize } from "../core/search";
 import { XP } from "../core/xp";
 import { todayKey } from "../core/date";
@@ -39,6 +40,12 @@ export interface WordInput {
   examples?: string[];
   tags?: string[];
   language?: string;
+  /** Backup-restore fidelity (honored when present). */
+  id?: number;
+  sm2?: Sm2State;
+  mastery?: Mastery;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 function normalizeTags(tags?: string[]): string[] {
@@ -47,6 +54,7 @@ function normalizeTags(tags?: string[]): string[] {
 
 export async function createWord(input: WordInput): Promise<number> {
   const now = Date.now();
+  const restoring = !!input.sm2;
   const w: Word = {
     word: input.word.trim(),
     translation: input.translation.trim(),
@@ -55,17 +63,17 @@ export async function createWord(input: WordInput): Promise<number> {
     examples: input.examples ?? [],
     tags: normalizeTags(input.tags),
     language: input.language?.trim() || undefined,
-    createdAt: now,
-    updatedAt: now,
-    sm2: newSm2(),
-    mastery: "new",
+    createdAt: input.createdAt ?? now,
+    updatedAt: input.updatedAt ?? now,
+    sm2: input.sm2 ?? newSm2(),
+    mastery: input.mastery ?? (input.sm2 ? computeMastery(input.sm2, true) : "new"),
   };
-  const id = (await db.words.add(w)) as number;
+  const id = restoring && input.id ? ((await db.words.put({ ...w, id: input.id })) as number) : ((await db.words.add(w)) as number);
   await indexWord(id, w);
   return id;
 }
 
-export async function updateWord(id: number, patch: WordInput & { sm2?: Sm2State; mastery?: Mastery }): Promise<void> {
+export async function updateWord(id: number, patch: Partial<WordInput> & { sm2?: Sm2State; mastery?: Mastery }): Promise<void> {
   const existing = await db.words.get(id);
   if (!existing) return;
   const next: Word = {
@@ -114,9 +122,14 @@ export async function listWords(opts: ListOptions = {}): Promise<Word[]> {
     if (tokens.length) {
       const scores = new Map<number, number>();
       for (const tk of tokens) {
-        const rows = await db.searchIndex.where("token").startsWith(tk).toArray();
-        for (const r of rows) {
-          const base = r.token === tk ? 3 : r.field === 2 ? 1 : 2;
+        // prefix tier
+        for (const r of await db.searchIndex.where("token").startsWith(tk).toArray()) {
+          const base = r.token === tk ? (r.field === 0 ? 3 : r.field === 2 ? 1 : 2) : r.field === 2 ? 1 : 2;
+          scores.set(r.wordId, (scores.get(r.wordId) ?? 0) + base);
+        }
+        // substring tier (below prefix, above plain tag)
+        for (const r of await db.searchIndex.filter((row) => row.token.includes(tk) && !row.token.startsWith(tk)).toArray()) {
+          const base = r.field === 2 ? 0.5 : 1;
           scores.set(r.wordId, (scores.get(r.wordId) ?? 0) + base);
         }
       }
@@ -131,6 +144,9 @@ export async function listWords(opts: ListOptions = {}): Promise<Word[]> {
   if (ranked) collection = ranked;
   else if (language) collection = await db.words.where("language").equals(language).toArray();
   else collection = await db.words.toArray();
+
+  // language collection applies to search results too (F-13)
+  if (language) collection = collection.filter((w) => w.language === language);
 
   if (tags && tags.length) {
     const wanted = new Set(tags);
@@ -171,22 +187,24 @@ export async function buildQueue(settings: Settings, now = Date.now()): Promise<
   const words = await db.words.toArray();
   const today = await db.daily.get(todayKey(settings.dayStartHour, now));
   const reviewedToday = today?.reviews ?? 0;
-  const learnedToday = today?.learned ?? 0;
+  const introducedToday = today?.learned ?? 0;
 
+  const budget = Math.max(0, settings.maxReviewsPerDay - reviewedToday);
   const due = words
     .filter((w) => w.mastery !== "new" && w.sm2.dueAt > 0 && w.sm2.dueAt <= now)
     .sort((a, b) => a.sm2.dueAt - b.sm2.dueAt)
-    .slice(0, Math.max(0, settings.maxReviewsPerDay - reviewedToday))
+    .slice(0, budget)
     .map((w) => ({ word: w, isNew: false }));
 
-  const newRoom = Math.max(0, settings.newPerDay - learnedToday);
+  // newPerDay is a sub-budget of the daily review budget (F-23)
+  const newRoom = Math.min(Math.max(0, settings.newPerDay - introducedToday), Math.max(0, budget - due.length));
   const fresh = words
     .filter((w) => w.mastery === "new")
     .sort((a, b) => a.createdAt - b.createdAt)
     .slice(0, newRoom)
     .map((w) => ({ word: w, isNew: true }));
 
-  return [...fresh, ...due];
+  return [...due, ...fresh];
 }
 
 export interface ReviewOutcome {
@@ -208,10 +226,11 @@ export async function recordReview(
   const lapsed = word.mastery === "mastered" && grade < 3;
   const mastery = computeMastery(sm2, true, lapsed);
   const updated: Word = { ...word, sm2, mastery, updatedAt: now };
-  const learned = wasNew && grade >= 3;
+  const introduced = wasNew; // any grade consumes the new-per-day slot (F-23)
+  const learnedXp = wasNew && grade >= 3 ? XP.learned : 0;
   const key = todayKey(settings.dayStartHour, now);
 
-  let xpGained = XP.review + (learned ? XP.learned : 0);
+  let xpGained = XP.review + learnedXp;
   let hitGoal = false;
 
   await db.transaction("rw", db.words, db.reviews, db.daily, async () => {
@@ -219,7 +238,7 @@ export async function recordReview(
     await db.reviews.add({ wordId: updated.id!, at: now, mode, grade, correct: grade >= 3, ms });
     const stat: DailyStat = (await db.daily.get(key)) ?? { date: key, learned: 0, reviews: 0, xp: 0 };
     stat.reviews += 1;
-    if (learned) stat.learned += 1;
+    if (introduced) stat.learned += 1;
     stat.xp += xpGained;
     if (stat.reviews === settings.dailyGoal) {
       stat.xp += XP.dailyGoal;
@@ -229,7 +248,23 @@ export async function recordReview(
     await db.daily.put(stat);
   });
 
-  return { xpGained, learned, hitGoal };
+  // streak milestone bonus (7 / 30 / 100), once per achieved length
+  const MILESTONES = [7, 30, 100];
+  const { current } = await streakInfo(settings.dayStartHour, now);
+  if (MILESTONES.includes(current)) {
+    const awarded = ((await db.kv.get("streakMilestones"))?.value as number[] | undefined) ?? [];
+    if (!awarded.includes(current)) {
+      await db.transaction("rw", db.daily, db.kv, async () => {
+        const stat = (await db.daily.get(key)) ?? { date: key, learned: 0, reviews: 0, xp: 0 };
+        stat.xp += XP.streakMilestone;
+        await db.daily.put(stat);
+        await db.kv.put({ key: "streakMilestones", value: [...awarded, current] });
+      });
+      xpGained += XP.streakMilestone;
+    }
+  }
+
+  return { xpGained, learned: introduced, hitGoal };
 }
 
 export async function totalXp(): Promise<number> {
@@ -248,8 +283,12 @@ export async function streakInfo(dayStartHour: number, now = Date.now()): Promis
   const active = new Set(rows.filter((r) => r.reviews > 0).map((r) => r.date));
   if (!active.size) return { current: 0, best: 0 };
 
-  let current = 0;
+  // A streak is alive if it ends today OR yesterday (day may have just started).
   const cursor = new Date(now);
+  if (!active.has(todayKey(dayStartHour, cursor.getTime()))) cursor.setDate(cursor.getDate() - 1);
+  if (!active.has(todayKey(dayStartHour, cursor.getTime()))) return { current: 0, best: 0 };
+
+  let current = 0;
   for (;;) {
     if (active.has(todayKey(dayStartHour, cursor.getTime()))) {
       current++;
@@ -348,6 +387,18 @@ export async function importWords(parsed: ParsedWord[], policy: DuplicatePolicy 
       await createWord(p);
       summary.added++;
     }
+  }
+  return summary;
+}
+
+/** Restore a JSON backup exactly (sm2/mastery/timestamps honored, ids preserved). */
+export async function restoreBackup(json: string): Promise<ImportSummary> {
+  const parsed = parseJson(json);
+  const summary: ImportSummary = { added: 0, merged: 0, replaced: 0, skipped: parsed.errors.length };
+  for (const p of parsed.words) {
+    if (!p.word.trim() || !p.translation.trim()) continue;
+    await createWord(p);
+    summary.added++;
   }
   return summary;
 }

@@ -1,6 +1,6 @@
 /** Core domain types shared by db, core algorithms and UI. */
 
-export type Mastery = "new" | "learning" | "review" | "mastered";
+export type Mastery = "new" | "learning" | "review" | "mastered" | "lapsed";
 
 export type ReviewMode = "flashcard" | "choice" | "typing" | "listening" | "matching";
 
@@ -88,4 +88,10 @@ export interface ParsedWord {
   examples?: string[];
   tags?: string[];
   language?: string;
+  /** Backup-restore fidelity (JSON round-trip only). */
+  id?: number;
+  sm2?: Sm2State;
+  mastery?: Mastery;
+  createdAt?: number;
+  updatedAt?: number;
 }

@@ -77,6 +77,40 @@ describe("export", () => {
   });
 });
 
+describe("backup round-trip", () => {
+  const sm2 = { ef: 2.71, interval: 12, reps: 4, lapses: 1, dueAt: 1700000000000 };
+  const word = {
+    id: 7,
+    word: "cadence",
+    translation: "ritmo",
+    transcription: "ˈkeɪ.dəns",
+    note: "from running",
+    examples: ["a steady cadence"],
+    tags: ["sport"],
+    language: "es",
+    createdAt: 1690000000000,
+    updatedAt: 1700000000000,
+    sm2,
+    mastery: "review" as const,
+  };
+
+  it("preserves sm2/mastery/timestamps through export → parse", () => {
+    const json = exportWords([word as never], "json");
+    const r = parseJson(json);
+    expect(r.errors).toHaveLength(0);
+    const p = r.words[0];
+    expect(p.id).toBe(7);
+    expect(p.sm2).toEqual(sm2);
+    expect(p.mastery).toBe("review");
+    expect(p.createdAt).toBe(1690000000000);
+  });
+
+  it("ignores malformed sm2 on restore", () => {
+    const r = parseJson('[{"word":"x","translation":"y","sm2":{"ef":"bad"}}]');
+    expect(r.words[0].sm2).toBeUndefined();
+  });
+});
+
 describe("grades", () => {
   it("looseEqual tolerates one typo", () => {
     expect(looseEqual("hello", "helo")).toBe(true);
@@ -88,5 +122,9 @@ describe("grades", () => {
     expect(autoGrade(true, 5000)).toBe(4);
     expect(autoGrade(true, 9000)).toBe(3);
     expect(autoGrade(false, 100)).toBe(1);
+  });
+  it("autoGrade typo channel overrides latency", () => {
+    expect(autoGrade(true, 1000, { typo: true })).toBe(3);
+    expect(autoGrade(true, 9000, { typo: true })).toBe(3);
   });
 });

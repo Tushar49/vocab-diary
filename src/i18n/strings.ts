@@ -144,6 +144,90 @@ export const en = {
   "common.error": "Something went wrong",
   "common.retry": "Retry",
   "common.close": "Close",
+
+  // ----- appended: editor -----
+  "add.title.new": "New word",
+  "add.title.edit": "Edit word",
+  "add.more": "More details",
+  "add.less": "Hide details",
+  "add.paste": "Paste",
+  "add.tagPlaceholder": "Add a tag…",
+  "add.examplePlaceholder": "Add an example…",
+  "add.clipboardFailed": "Couldn't read the clipboard",
+
+  // ----- appended: word detail -----
+  "detail.copied": "Copied to clipboard",
+  "detail.mastery": "Mastery",
+
+  // ----- appended: study -----
+  "study.new": "New",
+  "study.next": "Next",
+  "study.reviewed": "{n} reviewed",
+  "study.sessionProgress": "{done} / {total}",
+  "study.typeHeard": "Type what you hear…",
+
+  // ----- appended: mastery labels -----
+  "mastery.new": "New",
+  "mastery.learning": "Learning",
+  "mastery.review": "Review",
+  "mastery.mastered": "Mastered",
+  "mastery.lapsed": "Lapsed",
+
+  // ----- appended: progress -----
+  "progress.prevMonth": "Previous month",
+  "progress.nextMonth": "Next month",
+  "progress.mon": "Mon",
+  "progress.tue": "Tue",
+  "progress.wed": "Wed",
+  "progress.thu": "Thu",
+  "progress.fri": "Fri",
+  "progress.sat": "Sat",
+  "progress.sun": "Sun",
+  "progress.daysAgo": "{n} days ago",
+  "progress.weeksAgo": "{n} wk ago",
+  "progress.monthsAgo": "{n} mo ago",
+  "progress.yearsAgo": "{n} yr ago",
+
+  // ----- appended: settings -----
+  "settings.preferredModes": "Study modes",
+  "settings.voiceFor": "Voice · {lang}",
+  "settings.voice.none": "System default",
+  "settings.ai.testOk": "Connection OK ✓",
+  "settings.ai.testFail": "Connection failed ({msg})",
+  "settings.exportDone": "Exported {n} words",
+  "settings.backupNote": "Your data lives only in this browser — export a JSON backup regularly.",
+  "settings.privacy": "Local-first and private: your words, progress and settings stay on this device. No analytics, no tracking, no accounts. AI features send text only to the provider you configure, and only when you use them.",
+  "settings.version": "Version {v}",
+  "settings.install.ready": "Install now",
+  "settings.deleted": "All data deleted",
+
+  // ----- appended: translate -----
+  "translate.parseError": "Could not read the model's reply.",
+
+  // ----- appended: import -----
+  "import.fileHint": "CSV · TXT · JSON · Markdown",
+  "import.paste": "Or paste lines (word - translation)",
+  "import.parse": "Parse text",
+  "import.empty": "Nothing importable found",
+  "import.again": "Import another",
+
+  // ----- appended: onboarding -----
+  "onboarding.skip": "Skip",
+  "onboarding.next": "Next",
+  "onboarding.step": "{n} of 3",
+
+  "add.savedAnother": "Saved — add another",
+  "library.select": "Select",
+  "library.selected": "{n} selected",
+  "library.bulk.addTag": "Add tag",
+  "library.bulk.setLanguage": "Set language",
+  "library.bulk.delete": "Delete",
+  "library.bulk.deleteConfirm": "Delete {n} words?",
+  "library.bulk.done": "Done",
+  "import.aiParse": "✨ Parse with AI",
+  "import.aiParse.needAi": "Configure an AI key in Settings → AI first.",
+  "import.aiParse.failed": "AI parse failed — check key/model in Settings.",
+  "import.aiParse.disclosure": "The pasted text is sent to your configured AI provider.",
 } as const;
 
 export type StringKey = keyof typeof en;

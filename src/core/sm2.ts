@@ -17,9 +17,9 @@ export function gradeSm2(state: Sm2State, q: number, now = Date.now()): Sm2State
   else if (state.reps === 1) interval = 6;
   else interval = Math.min(365, Math.round((state.interval || 1) * ef));
 
-  // ±5% fuzz so bulk items don't clump
+  // ±5% fuzz so bulk items don't clump; the 365-day cap holds after fuzzing
   const fuzz = 1 + (Math.random() * 0.1 - 0.05);
-  interval = Math.max(1, Math.round(interval * fuzz));
+  interval = Math.min(365, Math.max(1, Math.round(interval * fuzz)));
 
   return { ef, interval, reps: state.reps + 1, lapses: state.lapses, dueAt: now + interval * 86_400_000 };
 }
@@ -32,9 +32,9 @@ export function masteryPips(sm2: Sm2State): number {
   return [DAY, 3 * DAY, 7 * DAY, 21 * DAY, 60 * DAY].filter((t) => iv >= t).length;
 }
 
-export function computeMastery(sm2: Sm2State, hasBeenReviewed: boolean, forceReview = false): Mastery {
+export function computeMastery(sm2: Sm2State, hasBeenReviewed: boolean, lapsedFromMastered = false): Mastery {
   if (!hasBeenReviewed) return "new";
-  if (forceReview) return "review";
+  if (lapsedFromMastered) return "lapsed";
   if (sm2.interval >= 21) return "mastered";
   if (sm2.interval >= 3 && sm2.reps >= 2) return "review";
   return "learning";
