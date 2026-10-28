@@ -1,7 +1,7 @@
 // Quick add (≤2 taps) + full editor — spec: plans/07-PRD.md §2.1 (F-01..F-04), §3.1 screens 2-3
 import { useEffect, useState } from "react";
-import type { Settings } from "../../types";
-import { createWord, deleteWord, getWord, updateWord, allLanguages } from "../../db/repo";
+import type { Settings, Word } from "../../types";
+import { createWord, deleteWord, getWord, updateWord, allLanguages, listWords } from "../../db/repo";
 import { t } from "../../i18n";
 import { Button, Card, Chip, Field, IconButton, Input, Textarea } from "../components";
 import { navigate } from "../../App";
@@ -15,6 +15,17 @@ function splitPair(text: string): { word: string; translation: string } {
 
 const LAST_LANG_KEY = "vd:lastLang";
 const LAST_TAGS_KEY = "vd:lastTags";
+
+const POS = [
+  ["noun", "pos.noun"],
+  ["verb", "pos.verb"],
+  ["adjective", "pos.adjective"],
+  ["adverb", "pos.adverb"],
+  ["preposition", "pos.preposition"],
+  ["conjunction", "pos.conjunction"],
+  ["phrase", "pos.phrase"],
+  ["other", "pos.other"],
+] as const;
 
 function readLastLang(): string {
   try {
@@ -35,6 +46,13 @@ function readLastTags(): string[] {
 export default function AddEdit({ editId, query }: { settings: Settings; editId?: number; query: URLSearchParams }) {
   const [word, setWord] = useState("");
   const [translation, setTranslation] = useState("");
+  const [pos, setPos] = useState("");
+  const [meanings, setMeanings] = useState<string[]>([]);
+  const [meaningInput, setMeaningInput] = useState("");
+  const [synonymIds, setSynonymIds] = useState<number[]>([]);
+  const [synonymLabels, setSynonymLabels] = useState<Record<number, string>>({});
+  const [synonymInput, setSynonymInput] = useState("");
+  const [synonymResults, setSynonymResults] = useState<Word[]>([]);
   const [transcription, setTranscription] = useState("");
   const [note, setNote] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -46,8 +64,6 @@ export default function AddEdit({ editId, query }: { settings: Settings; editId?
   const [expanded, setExpanded] = useState(!!editId);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState("");
 
   const focusWord = () =>
     document.querySelector<HTMLInputElement>(`input[aria-label="${t("word.word")}"]`)?.focus();
@@ -55,10 +71,19 @@ export default function AddEdit({ editId, query }: { settings: Settings; editId?
   // Load an existing word for the editor.
   useEffect(() => {
     if (!editId) return;
-    void getWord(editId).then((w) => {
+    void getWord(editId).then(async (w) => {
       if (!w) return;
       setWord(w.word);
       setTranslation(w.translation);
+      setPos(w.pos ?? "");
+      setMeanings(w.meanings ?? []);
+      const labels: Record<number, string> = {};
+      await Promise.all((w.synonyms ?? []).map(async (sid) => {
+        const sw = await getWord(sid);
+        if (sw?.id) labels[sw.id] = sw.word;
+      }));
+      setSynonymLabels(labels);
+      setSynonymIds(w.synonyms ?? []);
       setTranscription(w.transcription ?? "");
       setNote(w.note ?? "");
       setTags(w.tags);
@@ -131,43 +156,67 @@ export default function AddEdit({ editId, query }: { settings: Settings; editId?
     setExampleInput("");
   };
 
+  const addMeaning = () => {
+    const value = meaningInput.trim();
+    if (!value) return;
+    if (!meanings.includes(value)) setMeanings([...meanings, value]);
+    setMeaningInput("");
+  };
+
+  const searchSynonyms = (q: string) => {
+    setSynonymInput(q);
+    if (!q.trim()) {
+      setSynonymResults([]);
+      return;
+    }
+    void listWords({ query: q.trim(), limit: 6 }).then((rows) =>
+      setSynonymResults(rows.filter((r) => r.id !== editId && r.id !== undefined && !synonymIds.includes(r.id)))
+    );
+  };
+
+  const addSynonym = (w: Word) => {
+    if (w.id && !synonymIds.includes(w.id)) {
+      setSynonymIds((ids) => [...ids, w.id!]);
+      setSynonymLabels((m) => ({ ...m, [w.id!]: w.word }));
+    }
+    setSynonymInput("");
+    setSynonymResults([]);
+  };
+
   const save = async () => {
     if (!word.trim() || !translation.trim()) {
       setError(t("word.required"));
       return;
     }
     setError("");
-    setBusy(true);
     try {
       const input = {
         word,
         translation,
+        pos: pos || undefined,
+        meanings,
+        synonyms: synonymIds,
         transcription: transcription || undefined,
         note: note || undefined,
         examples,
         tags,
         language: language || undefined,
       };
+      rememberLastUsed(language, tags);
       if (editId) {
         await updateWord(editId, input);
         navigate(`word/${editId}`);
       } else {
-        await createWord(input);
-        rememberLastUsed(language, tags);
-        // F-01: keep the form open for rapid entry
-        setWord("");
-        setTranslation("");
-        setTranscription("");
-        setNote("");
-        setExamples([]);
-        setExampleInput("");
-        setToast(t("add.savedAnother"));
-        window.setTimeout(() => setToast(""), 2000);
-        focusWord();
+        // saving a word takes you straight to its page
+        const newId = await createWord({
+          ...input,
+          word: word.trim(),
+          translation: translation.trim(),
+        });
+        navigate(`word/${newId}`);
       }
     } catch {
       setError(t("common.error"));
-      setBusy(false);
     }
   };
 
@@ -186,9 +235,6 @@ export default function AddEdit({ editId, query }: { settings: Settings; editId?
           ‹
         </IconButton>
         <h1 className="text-lg font-extrabold">{t(editId ? "add.title.edit" : "add.title.new")}</h1>
-        {toast && (
-          <span className="ml-auto rounded-full bg-accent px-3 py-1 text-xs font-semibold text-white">{toast}</span>
-        )}
       </header>
 
       <Card className="space-y-3">
@@ -203,12 +249,12 @@ export default function AddEdit({ editId, query }: { settings: Settings; editId?
         </Field>
         <div className="flex items-end gap-2">
           <div className="flex-1">
-            <Field label={t("word.translation")}>
+            <Field label={t("word.meaning")}>
               <Input
                 value={translation}
                 onChange={(e) => setTranslation(e.target.value)}
-                placeholder={t("word.translation")}
-                aria-label={t("word.translation")}
+                placeholder={t("word.meaning")}
+                aria-label={t("word.meaning")}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !expanded) void save();
                 }}
@@ -224,8 +270,18 @@ export default function AddEdit({ editId, query }: { settings: Settings; editId?
             {error}
           </p>
         )}
+        <div>
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-soft dark:text-[#b7a895]">
+            {t("add.pos")}
+          </span>
+          <div className="flex flex-wrap gap-1">
+            {POS.map(([p, key]) => (
+              <Chip key={p} label={t(key)} active={pos === p} onClick={() => setPos(pos === p ? "" : p)} />
+            ))}
+          </div>
+        </div>
         <div className="flex gap-2">
-          <Button className="flex-1" disabled={busy} onClick={() => void save()}>
+          <Button className="flex-1" onClick={() => void save()}>
             {t("word.save")}
           </Button>
           <Button variant="ghost" onClick={() => setExpanded((v) => !v)}>
@@ -244,6 +300,85 @@ export default function AddEdit({ editId, query }: { settings: Settings; editId?
               aria-label={t("word.transcription")}
             />
           </Field>
+
+          <div>
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-soft dark:text-[#b7a895]">
+              {t("add.meanings")}
+            </span>
+            {meanings.length > 0 && (
+              <ul className="mb-2 space-y-1">
+                {meanings.map((m, i) => (
+                  <li key={`${i}-${m}`} className="flex items-center justify-between gap-2 rounded-xl bg-cream-2 px-3 py-2 text-sm dark:bg-[#332a20]">
+                    <span>{m}</span>
+                    <button
+                      aria-label={`${t("common.close")} ${i + 1}`}
+                      className="text-ink-soft dark:text-[#b7a895]"
+                      onClick={() => setMeanings(meanings.filter((_, j) => j !== i))}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex gap-2">
+              <Input
+                value={meaningInput}
+                onChange={(e) => setMeaningInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addMeaning())}
+                placeholder={t("add.meaningPlaceholder")}
+                aria-label={t("add.meanings")}
+              />
+              <Button variant="outline" className="shrink-0" onClick={addMeaning} aria-label={t("add.meanings")}>
+                ＋
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-ink-soft dark:text-[#b7a895]">
+              {t("add.synonyms")}
+            </span>
+            {synonymIds.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1">
+                {synonymIds.map((sid) => (
+                  <Chip
+                    key={sid}
+                    label={synonymLabels[sid] ?? `#${sid}`}
+                    active
+                    onClick={() => {
+                      setSynonymIds(synonymIds.filter((x) => x !== sid));
+                      setSynonymResults([]);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+            {synonymResults.length > 0 ? (
+              <ul className="mb-2 space-y-1">
+                {synonymResults.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-2 rounded-xl bg-cream-2 px-3 py-2 text-sm dark:bg-[#332a20]"
+                      onClick={() => addSynonym(r)}
+                    >
+                      <span className="font-bold">{r.word}</span>
+                      <span className="truncate text-ink-soft dark:text-[#b7a895]">{r.translation}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              synonymInput.trim() && <p className="mb-2 text-xs text-ink-soft dark:text-[#b7a895]">{t("add.noMatches")}</p>
+            )}
+            <Input
+              value={synonymInput}
+              onChange={(e) => searchSynonyms(e.target.value)}
+              placeholder={t("add.synPlaceholder")}
+              aria-label={t("add.synonyms")}
+            />
+          </div>
 
           <Field label={t("word.note")}>
             <Textarea

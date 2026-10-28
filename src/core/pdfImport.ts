@@ -51,6 +51,7 @@ interface Draft {
   word?: string;
   transcription?: string;
   translation?: string;
+  meanings?: string[];
   note?: string;
   tags?: string[];
   examples?: string[];
@@ -75,6 +76,7 @@ export function parsePdfLines(lines: PdfLine[]): ParseResult {
         word: cur.word,
         translation: cur.translation,
         transcription: cur.transcription || undefined,
+        meanings: cur.meanings?.length ? cur.meanings : undefined,
         note: cur.note || undefined,
         tags: cur.tags?.length ? cur.tags : undefined,
         examples: cur.examples?.length ? cur.examples : undefined,
@@ -102,6 +104,8 @@ export function parsePdfLines(lines: PdfLine[]): ParseResult {
     if (!cur || nextIsHead) continue;
     if (text.startsWith("#")) {
       cur.tags = [...(cur.tags ?? []), ...text.split(/\s+/).map((tk) => tk.replace(/^#+/, "")).filter(Boolean)];
+    } else if (text.startsWith("≈")) {
+      cur.meanings = [...(cur.meanings ?? []), text.replace(/^≈\s*/, "")];
     } else if (text.startsWith("•")) {
       cur.examples = [...(cur.examples ?? []), text.replace(/^•\s*/, "")];
     } else if (cur.examples?.length && !cur.tags?.length && l.size < 10.9) {

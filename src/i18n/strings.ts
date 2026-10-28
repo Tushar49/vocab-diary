@@ -237,6 +237,23 @@ export const en = {
   "import.pdfFail": "Couldn't read that PDF. If it's a scanned document/scan-like image, extract text another way and paste it (Paste → AI parse).",
   "library.wordOfDay": "Word of the day",
   "library.count.one": "1 word",
+  "word.meaning": "Meaning",
+  "add.pos": "Part of speech",
+  "pos.noun": "noun",
+  "pos.verb": "verb",
+  "pos.adjective": "adjective",
+  "pos.adverb": "adverb",
+  "pos.preposition": "preposition",
+  "pos.conjunction": "conjunction",
+  "pos.phrase": "phrase",
+  "pos.other": "other",
+  "add.meanings": "Additional meanings",
+  "add.meaningPlaceholder": "another sense of the word…",
+  "add.synonyms": "Synonyms",
+  "add.synPlaceholder": "link a word — type to search…",
+  "add.noMatches": "No matching words yet",
+  "detail.synonyms": "Synonyms",
+  "detail.alsoMeans": "Also means",
 } as const;
 
 export type StringKey = keyof typeof en;

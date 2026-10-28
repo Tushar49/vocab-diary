@@ -38,6 +38,9 @@ export function parseJson(content: string): ParseResult {
       words.push({
         word,
         translation,
+        pos: row.pos != null ? String(row.pos) : undefined,
+        meanings: Array.isArray(row.meanings) ? row.meanings.map(String) : undefined,
+        synonyms: Array.isArray(row.synonyms) ? row.synonyms.map(Number).filter(Number.isInteger) : undefined,
         transcription: row.transcription != null ? String(row.transcription) : undefined,
         note: row.note != null ? String(row.note) : undefined,
         examples: Array.isArray(row.examples) ? row.examples.map(String) : undefined,
@@ -87,6 +90,8 @@ export function parseCsv(content: string): ParseResult {
   const wI = hasHeader ? (idx("word") >= 0 ? idx("word") : idx("term")) : 0;
   const tI = hasHeader ? (idx("translation") >= 0 ? idx("translation") : idx("meaning")) : 1;
   const trI = hasHeader ? idx("transcription") : 2;
+  const posI = hasHeader ? idx("pos") : -1;
+  const mI = hasHeader ? idx("meanings") : -1;
   const nI = hasHeader ? idx("note") : 3;
   const tgI = hasHeader ? (idx("tags") >= 0 ? idx("tags") : idx("tag")) : 4;
   const lI = hasHeader ? idx("language") : -1;
@@ -102,6 +107,8 @@ export function parseCsv(content: string): ParseResult {
     words.push({
       word,
       translation,
+      pos: posI >= 0 && r[posI] ? r[posI].trim() || undefined : undefined,
+      meanings: mI >= 0 && r[mI] ? r[mI].split(";").map((m) => m.trim()).filter(Boolean) : undefined,
       transcription: trI >= 0 ? (r[trI] || undefined) : undefined,
       note: nI >= 0 ? (r[nI] || undefined) : undefined,
       tags: tgI >= 0 && r[tgI] ? splitList(r[tgI]) : undefined,
@@ -210,6 +217,8 @@ export type ExportFormat = "json" | "csv" | "markdown" | "txt";
 export interface ExportFields {
   word: boolean;
   translation: boolean;
+  pos: boolean;
+  meanings: boolean;
   transcription: boolean;
   note: boolean;
   tags: boolean;
@@ -219,6 +228,8 @@ export interface ExportFields {
 export const ALL_FIELDS: ExportFields = {
   word: true,
   translation: true,
+  pos: true,
+  meanings: true,
   transcription: true,
   note: true,
   tags: true,
@@ -237,6 +248,8 @@ export function exportWords(words: import("../types").Word[], format: ExportForm
     const cols: string[] = [];
     if (fields.word) cols.push("word");
     if (fields.translation) cols.push("translation");
+    if (fields.pos) cols.push("pos");
+    if (fields.meanings) cols.push("meanings");
     if (fields.transcription) cols.push("transcription");
     if (fields.note) cols.push("note");
     if (fields.tags) cols.push("tags");
@@ -246,6 +259,7 @@ export function exportWords(words: import("../types").Word[], format: ExportForm
     for (const w of words) {
       const row = cols.map((c) => {
         if (c === "tags") return esc(w.tags.join(", "));
+        if (c === "meanings") return esc((w.meanings ?? []).join("; "));
         return esc(String((w as unknown as Record<string, unknown>)[c] ?? ""));
       });
       lines.push(row.join(","));

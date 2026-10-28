@@ -35,6 +35,9 @@ async function unindexWord(id: number): Promise<void> {
 export interface WordInput {
   word: string;
   translation: string;
+  pos?: string;
+  meanings?: string[];
+  synonyms?: number[];
   transcription?: string;
   note?: string;
   examples?: string[];
@@ -52,12 +55,23 @@ function normalizeTags(tags?: string[]): string[] {
   return [...new Set((tags ?? []).map((t) => t.trim()).filter(Boolean))];
 }
 
+function normalizeMeanings(meanings?: string[]): string[] {
+  return [...new Set((meanings ?? []).map((m) => m.trim()).filter(Boolean))];
+}
+
+function normalizeSynonyms(ids?: number[]): number[] {
+  return [...new Set((ids ?? []).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+}
+
 export async function createWord(input: WordInput): Promise<number> {
   const now = Date.now();
   const restoring = !!input.sm2;
   const w: Word = {
     word: input.word.trim(),
     translation: input.translation.trim(),
+    pos: input.pos?.trim() || undefined,
+    meanings: normalizeMeanings(input.meanings),
+    synonyms: normalizeSynonyms(input.synonyms),
     transcription: input.transcription?.trim() || undefined,
     note: input.note?.trim() || undefined,
     examples: input.examples ?? [],
@@ -80,6 +94,9 @@ export async function updateWord(id: number, patch: Partial<WordInput> & { sm2?:
     ...existing,
     word: (patch.word ?? existing.word).trim(),
     translation: (patch.translation ?? existing.translation).trim(),
+    pos: patch.pos !== undefined ? patch.pos.trim() || undefined : existing.pos,
+    meanings: patch.meanings !== undefined ? normalizeMeanings(patch.meanings) : existing.meanings,
+    synonyms: patch.synonyms !== undefined ? normalizeSynonyms(patch.synonyms) : existing.synonyms,
     transcription: patch.transcription !== undefined ? patch.transcription.trim() || undefined : existing.transcription,
     note: patch.note !== undefined ? patch.note.trim() || undefined : existing.note,
     examples: patch.examples ?? existing.examples,
@@ -358,6 +375,9 @@ export async function importWords(parsed: ParsedWord[], policy: DuplicatePolicy 
         const merged: Word = {
           ...dupe,
           translation: dupe.translation || p.translation,
+          pos: dupe.pos || p.pos,
+          meanings: normalizeMeanings([...(dupe.meanings ?? []), ...(p.meanings ?? [])]),
+          synonyms: normalizeSynonyms([...(dupe.synonyms ?? []), ...(p.synonyms ?? [])]),
           transcription: dupe.transcription || p.transcription,
           note: dupe.note || p.note,
           examples: [...new Set([...dupe.examples, ...(p.examples ?? [])])],
@@ -372,6 +392,9 @@ export async function importWords(parsed: ParsedWord[], policy: DuplicatePolicy 
         const replaced: Word = {
           ...dupe,
           translation: p.translation,
+          pos: p.pos,
+          meanings: normalizeMeanings(p.meanings),
+          synonyms: normalizeSynonyms(p.synonyms),
           transcription: p.transcription,
           note: p.note,
           examples: p.examples ?? [],

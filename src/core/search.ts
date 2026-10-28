@@ -19,13 +19,16 @@ export function tokenize(input: string): string[] {
 export function tokensForWord(w: {
   word: string;
   translation?: string;
+  pos?: string;
+  meanings?: string[];
   transcription?: string;
   note?: string;
   tags?: string[];
 }): IndexedToken[] {
   const out: IndexedToken[] = [];
   for (const t of tokenize(w.word)) out.push({ token: t, field: 0 });
-  for (const t of tokenize([w.translation, w.transcription, w.note].filter(Boolean).join(" ")))
+  const meaningParts = [w.translation, ...(w.meanings ?? []), w.pos ?? ""];
+  for (const t of tokenize([...meaningParts, w.transcription, w.note].filter(Boolean).join(" ")))
     out.push({ token: t, field: 1 });
   for (const tag of w.tags ?? []) for (const t of tokenize(tag)) out.push({ token: t, field: 2 });
   return out;

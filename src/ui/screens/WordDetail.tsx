@@ -31,13 +31,24 @@ function Pips({ value }: { value: number }) {
 
 export default function WordDetail({ settings, id }: { settings: Settings; id: number }) {
   const [word, setWord] = useState<Word | null>(null);
+  const [synLabels, setSynLabels] = useState<Record<number, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
-    void getWord(id).then((w) => {
+    void getWord(id).then(async (w) => {
       setWord(w ?? null);
+      if (w?.synonyms?.length) {
+        const labels: Record<number, string> = {};
+        await Promise.all(w.synonyms.map(async (sid) => {
+          const sw = await getWord(sid);
+          if (sw?.id) labels[sw.id] = sw.word;
+        }));
+        setSynLabels(labels);
+      } else {
+        setSynLabels({});
+      }
       setLoaded(true);
     });
   }, [id]);
@@ -128,6 +139,9 @@ export default function WordDetail({ settings, id }: { settings: Settings; id: n
           </IconButton>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-soft dark:text-[#b7a895]">
+          {word.pos && (
+            <span className="rounded-full bg-accent/10 px-2 py-0.5 font-semibold text-accent">{word.pos}</span>
+          )}
           <Pips value={masteryPips(word.sm2)} />
           <span className="rounded-full bg-cream-2 px-2 py-0.5 font-medium dark:bg-[#332a20]">
             {t(MASTERY_KEY[word.mastery])}
@@ -145,6 +159,32 @@ export default function WordDetail({ settings, id }: { settings: Settings; id: n
           <div className="flex flex-wrap gap-1">
             {word.tags.map((tg) => (
               <Chip key={tg} label={tg} />
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {word.meanings && word.meanings.length > 0 && (
+        <Card className="mt-3">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft dark:text-[#b7a895]">
+            {t("detail.alsoMeans")}
+          </div>
+          <ul className="list-inside list-disc space-y-1 text-sm">
+            {word.meanings.map((m, i) => (
+              <li key={`${i}-${m}`}>{m}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {word.synonyms && word.synonyms.length > 0 && (
+        <Card className="mt-3">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft dark:text-[#b7a895]">
+            {t("detail.synonyms")}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {word.synonyms.map((sid) => (
+              <Chip key={sid} label={synLabels[sid] ?? `#${sid}`} onClick={() => navigate(`word/${sid}`)} />
             ))}
           </div>
         </Card>

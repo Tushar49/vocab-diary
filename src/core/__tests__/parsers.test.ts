@@ -6,6 +6,9 @@ const w = (over: Partial<Word> = {}): Word => ({
   id: 1,
   word: "resilience",
   translation: "the ability to recover",
+  pos: "noun",
+  meanings: ["toughness under pressure"],
+  synonyms: [2],
   transcription: "ˈkeɪ.dəns",
   note: "note here // not really", // note containing the comment marker
   examples: [],
@@ -50,9 +53,27 @@ describe("CSV round-trip", () => {
     const g = r.words[0]!;
     expect(g.word).toBe("resilience");
     expect(g.translation).toBe("the ability to recover");
+    expect(g.pos).toBe("noun");
+    expect(g.meanings).toEqual(["toughness under pressure"]);
     expect(g.transcription).toBe("ˈkeɪ.dəns");
     expect(g.tags).toEqual(["mvi", "ae"]);
     expect(g.language).toBe("en");
+  });
+});
+
+describe("JSON round-trip", () => {
+  it("preserves pos, meanings, synonyms and scheduling state", () => {
+    const json = exportWords([w()], "json", ALL_FIELDS);
+    const r = parseImport("x.json", json);
+    expect(r.errors).toEqual([]);
+    expect(r.words[0]).toMatchObject({
+      word: "resilience",
+      pos: "noun",
+      meanings: ["toughness under pressure"],
+      synonyms: [2],
+      id: 1,
+    });
+    expect(r.words[0]?.sm2).toEqual({ ef: 2.5, interval: 0, reps: 0, lapses: 0, dueAt: 0 });
   });
 });
 

@@ -65,8 +65,8 @@ describe("export", () => {
   ];
   it("exports CSV with header and rows", () => {
     const out = exportWords(words, "csv");
-    expect(out).toContain("word,translation,transcription,note,tags,language");
-    expect(out).toContain("a,b,c,,x,es");
+    expect(out).toContain("word,translation,pos,meanings,transcription,note,tags,language");
+    expect(out).toContain("a,b,,,c,,x,es");
   });
   it("quotes CSV fields containing commas", () => {
     const tagged = [{ ...words[0], tags: ["x", "y,z"] }];
@@ -126,5 +126,13 @@ describe("grades", () => {
   it("autoGrade typo channel overrides latency", () => {
     expect(autoGrade(true, 1000, { typo: true })).toBe(3);
     expect(autoGrade(true, 9000, { typo: true })).toBe(3);
+  });
+});
+
+describe('tokensForWord — meanings + pos indexed', () => {
+  it('indexes additional meanings and pos as field 1', () => {
+    const toks = tokensForWord({ word: 'run', translation: 'to move fast', pos: 'verb', meanings: ['to operate', 'to flow'] });
+    const f1 = toks.filter((x) => x.field === 1).map((x) => x.token);
+    expect(f1).toEqual(expect.arrayContaining(['operate', 'flow', 'verb', 'move']));
   });
 });

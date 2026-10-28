@@ -11,6 +11,7 @@ describe("parsePdfLines — this app's own PDF export layout", () => {
       L("ENGLISH", 10), // section label (in our export these are uppercase)
       L("resilience [ˈkeɪ.dəns]", 12),
       L("the ability to recover", 11),
+      L("≈ toughness under pressure", 10),
       L("note part one", 10),
       L("note part two", 10),
       L("• she showed great resilience.", 10),
@@ -26,6 +27,7 @@ describe("parsePdfLines — this app's own PDF export layout", () => {
       word: "resilience",
       translation: "the ability to recover",
       transcription: "ˈkeɪ.dəns",
+      meanings: ["toughness under pressure"],
       note: "note part one note part two",
       examples: ["she showed great resilience.", "they recovered fast."],
       tags: ["mvi", "word"],

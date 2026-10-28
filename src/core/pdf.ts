@@ -125,6 +125,7 @@ export async function exportPdf(words: Word[]): Promise<Blob> {
       }
       y += 16;
       text(w.translation, 11, "normal", SOFT, 15);
+      if (w.meanings?.length) text(w.meanings.map((m) => `≈ ${m}`).join("\n"), 10, "normal", SOFT, 14);
       if (w.note) text(w.note, 10, "italic", SOFT, 14);
       if (w.examples.length) text(w.examples.slice(0, 3).map((e) => `• ${e}`).join("\n"), 10, "normal", FAINT, 14);
       if (w.tags.length) text(w.tags.map((t) => `#${t.replace(/\s+/g, "")}`).join("  "), 9, "normal", FAINT, 13);

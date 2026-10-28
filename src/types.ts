@@ -16,7 +16,14 @@ export interface Sm2State {
 export interface Word {
   id?: number;
   word: string;
+  /** Primary meaning (display label: "Meaning"). */
   translation: string;
+  /** Part of speech: noun, verb, adjective … (free text, usually from the POS chip set). */
+  pos?: string;
+  /** Additional meanings beyond the primary one. */
+  meanings?: string[];
+  /** Words linked as synonyms/related (word ids). */
+  synonyms?: number[];
   transcription?: string;
   note?: string;
   examples: string[];
@@ -83,6 +90,9 @@ export const newSm2 = (): Sm2State => ({ ef: 2.5, interval: 0, reps: 0, lapses: 
 export interface ParsedWord {
   word: string;
   translation: string;
+  pos?: string;
+  meanings?: string[];
+  synonyms?: number[];
   transcription?: string;
   note?: string;
   examples?: string[];
